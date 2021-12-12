@@ -3,4 +3,6 @@
 *.d
 *.old
 *.txt
+*.crf
+*.exe
 .vscode
