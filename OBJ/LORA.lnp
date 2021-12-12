@@ -46,7 +46,7 @@
 "..\obj\gui.o"
 "..\obj\lcd_driver.o"
 "..\obj\tft_demo.o"
---strict --scatter "..\OBJ\LORA.sct"
+--library_type=microlib --strict --scatter "..\OBJ\LORA.sct"
 --summary_stderr --info summarysizes --map --xref --callgraph --symbols
 --info sizes --info totals --info unused --info veneers
 --list ".\LORA.map" -o ..\OBJ\LORA.axf

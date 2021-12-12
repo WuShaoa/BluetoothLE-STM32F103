@@ -7,36 +7,29 @@
 #include "usart3.h"
 
 //for debugging utilities
-#define DEBUG_VERSION
+//TODO: clock() cant use!!
+// #define DEBUG_VERSION
 
 #if defined (DEBUG_VERSION)
 #include <time.h>
 #endif
-/************************************************************************************
-							本例程提供自以下店铺：
-								Ilovemcu.taobao.com
-							实验相关外围扩展模块均来自以上店铺
-							作者：神秘藏宝室							
-*************************************************************************************/
+
 #include "stm32f10x.h"
-
 #include "FSR.h"
-
 #include "adc.h"
 #include "ble_app.h"
 
 // 角速度传感器
 
 #include "usart2.h"
-
 #include "imu901.h"
 
 //下面4项内容需要根据实际型号和量程修正
 
-//最小量程 根据具体型号对应手册获取,单位是g，这里以RP-18.3-ST型号为例，最小量程是20g
-#define PRESS_MIN 20
-//最大量程 根据具体型号对应手册获取,单位是g，这里以RP-18.3-ST型号为例，最大量程是6kg
-#define PRESS_MAX 6000
+//最小量程 根据具体型号对应手册获取,单位是g
+#define PRESS_MIN 500
+//最大量程 根据具体型号对应手册获取,单位是g
+#define PRESS_MAX 20000
 
 //以下2个参数根据获取方法：
 //理论上：
@@ -48,7 +41,10 @@
 //想要稍微精准点，需要自己给定具体已知力，然后调节AO_RES电位器到串口输出重量正好是自己给定力就可以了
 #define VOLTAGE_MIN 150
 #define VOLTAGE_MAX 3300
+
+/* unuse MAX_BLE_SEND
 #define MAX_BLE_SEND 100
+*/
 u8 state = 0;
 u16 val = 0;
 u16 value_AD = 0;
@@ -58,51 +54,7 @@ int VOLTAGE_AO = 0;
 
 long map(long x, long in_min, long in_max, long out_min, long out_max);
 
-//@int main(void)
-//@{
-//@	delay_init();				//延时函数初始化
-//@	NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);	 //设置NVIC中断分组2:2位抢占优先级，2位响应优先级
-//@	uart_init(9600);	 //串口初始化波特率为9600
-//@	/*通道初始化*/
-//@	Adc_Init();
-//@
-//@	delay_ms(1000);
-//@
-//@	//TODO data passing
-//@
-//@  LED_Init();                                     //LED初始化
-//@  KEY_Init();                                     //KEY初始化
-//@	//-Ble_IoInit(); //BLE???u?'??
-//@  //-Ble_SetInit();//BLE????????
-//@	printf("Test start\r\n");
-//@	while(1)
-//@	{
-//@		/*多次获取ADC1的值，取平均*/
-//@		value_AD = Get_Adc_Average(1,10);	//10次平均值
-//@		/*AO引脚输出的电压有效范围是0.1v到3.3v*/
-//@		VOLTAGE_AO = map(value_AD, 0, 4095, 0, 3300);
-//@		if(VOLTAGE_AO < VOLTAGE_MIN)
-//@		{
-//@			PRESS_AO = 0;
-//@		}
-//@		else if(VOLTAGE_AO > VOLTAGE_MAX)
-//@		{
-//@			PRESS_AO = PRESS_MAX;
-//@		}
-//@		else
-//@		{
-//@			/*将[VOLTAGE_MIN, VOLTAGE_MAX]范围内的VOLTAGE_AO映射到[PRESS_MIN, PRESS_MAX]内*/
-//@			PRESS_AO = map(VOLTAGE_AO, VOLTAGE_MIN, VOLTAGE_MAX, PRESS_MIN, PRESS_MAX);
-//@		}
-//@		//-Ble_Test(PRESS_AO); //sending data by ble
-//@		printf("AD值 = %d,电压 = %d mv,压力 = %ld g\r\n",value_AD,VOLTAGE_AO,PRESS_AO);
-//@
-//@		delay_ms(10);// round faster
-//@	}
-//@
-//@}
-//@
-
+static double temp;
 /*
 将[in_min, in_max]范围内的x等比映射到[out_min, out_max]内
 */
@@ -113,17 +65,23 @@ long map(long x, long in_min, long in_max, long out_min, long out_max)
 
 int main(void)
 {
+	
 	int count = 0;
-	uint32_t times = 0;
+	int flag_wkup_pressed = 0;
+	
+	#if defined (DEBUG_VERSION)
+		clock_t clk_time = 0.0;
+		int flag_first = 1;
+	#endif
+	
 	uint8_t ch;
 
 	delay_init();									//延时函数初始化
 	NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2); //设置NVIC中断分组2:2位抢占优先级，2位响应优先级
-													//@	uart_init(9600);	 //串口初始化波特率为9600
-													//@	/*通道初始化*/
+	
+	/*通道初始化*/
 	Adc_Init();
 
-	//sys_stm32_clock_init(RCC_PLL_MUL9);     /* 设置时钟, 72Mhz */
 	/* 延时初始化 */
 	uart_init(115200); /* 串口初始化为115200 */
 	LED_Init();		   /* 初始化LED */
@@ -131,8 +89,8 @@ int main(void)
 	imu901_init(); /* IMU901模块初始 */
 
 	KEY_Init();	//KEY初始化
-	Ble_IoInit();  //BLE???u?'??
-	Ble_SetInit(); //BLE????????
+	Ble_IoInit(); 
+	Ble_SetInit();
 
 	while (1)
 	{
@@ -157,10 +115,6 @@ int main(void)
 			//fflush(stdout);
 			delay_ms(1);
 	
-			times++;
-	
-			//if (times % 300  == 0) LED0_TOGGLE(); 	/* 闪烁LED,提示系统正在运行 */
-	
 			// ble和压力传感器
 			/*多次获取ADC1的值，取平均*/
 			value_AD = Get_Adc_Average(1, 10); //10次平均值
@@ -182,59 +136,82 @@ int main(void)
 			//Ble_Test(PRESS_AO); //sending data by ble
 	
 			printf("AD值 = %d,电压 = %d mv,压力 = %ld g\r\n", value_AD, VOLTAGE_AO, PRESS_AO);
-	
-			//if (times % 1000 == 0) 					/*!< 1秒打印一次数据 */
-			//{
-			printf("\r\n");
 			printf("姿态角[XYZ]:    %-6.1f     %-6.1f     %-6.1f   (°)\r\n", attitude.roll, attitude.pitch, attitude.yaw);
 			printf("加速度[XYZ]:    %-6.3f     %-6.3f     %-6.3f   (g)\r\n", gyroAccData.faccG[0], gyroAccData.faccG[1], gyroAccData.faccG[2]);
 			printf("角速度[XYZ]:    %-6.1f     %-6.1f     %-6.1f   (°/s)\r\n", gyroAccData.fgyroD[0], gyroAccData.fgyroD[1], gyroAccData.fgyroD[2]);
 			//printf("磁场[XYZ]  :    %-6d     %-6d     %-6d   (uT)\r\n", magData.mag[0], magData.mag[1], magData.mag[2]);
 			//printf("气压 	   :    %-6dPa   %-6dcm\r\n", baroData.pressure, baroData.altitude);
-	
-			//}
-	
-			//if (times % 1000 == 0) 					/*!< 1秒打印一次数据 */
-			//{
-	
 			
 			u8 key = KEY_Scan(0);
 			if (key == WKUP_PRES) //????????
 			{
+				#if defined (DEBUG_VERSION)
+					int flag_first = 1;
+				#endif
 				count = 0;
-			}
-	
-			//}
-			// 当WAKE_UP按下时发送MAX_BLE_SEND次数据
-			if (count < MAX_BLE_SEND)
-			{
-				
-				if (BLE_STA){
-					//delay_ms(1);
-					u3_printf("%d %d %ld ", value_AD, VOLTAGE_AO, PRESS_AO); //压力
-					delay_ms(1);
-					u3_printf("%-6.1f %-6.1f %-6.1f ", attitude.roll, attitude.pitch, attitude.yaw);
-					delay_ms(1);
-					u3_printf("%-6.3f %-6.3f %-6.3f ", gyroAccData.faccG[0], gyroAccData.faccG[1], gyroAccData.faccG[2]);
-					delay_ms(1);
-					u3_printf("%-6.1f %-6.1f %-6.1f ", gyroAccData.fgyroD[0], gyroAccData.fgyroD[1], gyroAccData.fgyroD[2]);
-					//u3_printf("%-6d %-6d %-6d (uT) ", magData.mag[0], magData.mag[1], magData.mag[2]);
-					//u3_printf("%-6dPa %-6dcm ", baroData.pressure, baroData.altitude);
-					delay_ms(1);
-					u3_printf("\r\n");
-					delay_ms(1);
-					count++;
-				}
-				else{ printf("CHECK BLE STATE! \r\n"); }
-			}
-			
+				flag_wkup_pressed = 1;
 				if(!BLE_WKUP){
 					BLE_WKUP = 0;
 					delay_ms(1);
 					BLE_WKUP = 1;
 					delay_ms(1);
 				}
+				
+			}
+	
 			//}
+			// 当WAKE_UP按下时发送MAX_BLE_SEND次数据
+			#if defined (MAX_BLE_SEND)
+			if (count < MAX_BLE_SEND)
+			#else
+			if (flag_wkup_pressed)
+			#endif
+			{
+				
+				if (BLE_STA){
+					//delay_ms(1);
+					u3_printf("%d %d %ld ", value_AD, VOLTAGE_AO, PRESS_AO); //压力
+					//delay_ms(1);
+					u3_printf("%-6.1f %-6.1f %-6.1f ", attitude.roll, attitude.pitch, attitude.yaw);
+					//delay_ms(1);
+					u3_printf("%-6.3f %-6.3f %-6.3f ", gyroAccData.faccG[0], gyroAccData.faccG[1], gyroAccData.faccG[2]);
+					//delay_ms(1);
+					u3_printf("%-6.1f %-6.1f %-6.1f ", gyroAccData.fgyroD[0], gyroAccData.fgyroD[1], gyroAccData.fgyroD[2]);
+					//u3_printf("%-6d %-6d %-6d (uT) ", magData.mag[0], magData.mag[1], magData.mag[2]);
+					//u3_printf("%-6dPa %-6dcm ", baroData.pressure, baroData.altitude);
+					//delay_ms(1);
+					u3_printf("\r\n");
+					//delay_ms(1);
+					count++;
+				}
+				else{ printf("CHECK BLE STATE! \r\n"); }
+			}
+
+			
+			#if defined (DEBUG_VERSION)
+				else if (count == MAX_BLE_SEND)
+					{ 
+						if (flag_first) {
+							
+							printf("\r\n Total time used in BLE transfer is %f per sec per round \r\n", \
+								(1.0 * (clock() - clk_time) / CLOCKS_PER_SEC) / count); 
+							printf("\r\n MAX_BLE_SEND is %d \r\n", count);
+							
+							temp = (1.0 * (clock() - clk_time) / CLOCKS_PER_SEC) / count;
+							
+							clk_time = clock(); //re-counting
+							flag_first = 0;
+						}
+					}
+				if(!flag_first)
+				{
+					printf("\r\n Total time used in BLE transfer is %f per sec per round \r\n", \
+						temp); 
+					printf("\r\n count is %d \r\n", count);
+					printf("clock() is %f, clk_time is %f \r\n", 1.0 * clock(), 1.0 * clk_time); 
+				}
+			#endif
+			
 		}
 	}
 }

@@ -364,7 +364,7 @@ void imu901_init(void)
       *  如陀螺仪加速度量程、带宽、回传速率、PWM输出等。
       */
     atkpWriteReg(REG_GYROFSR, 3, 1);
-    atkpWriteReg(REG_ACCFSR, 1, 1);
+	atkpWriteReg(REG_ACCFSR, 3, 1); // 3: 16G
 	atkpWriteReg(REG_SAVE, 0, 1); 	/* 发送保存参数至模块内部Flash，否则模块掉电不保存 */
 
     /* 读出寄存器参数（测试） */
