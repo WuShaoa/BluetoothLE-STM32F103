@@ -2,4 +2,5 @@
 *.o
 *.d
 *.old
+*.txt
 .vscode
