@@ -1,0 +1,3 @@
+STM32F103 MPU9250
+PB6       SCL
+PB7       SDA        
