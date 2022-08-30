@@ -27,7 +27,7 @@ def plot_data(path):
 
     t = np.arange(0, np.size(acc_xl), 1)
 
-    plt.figure()
+    plt.subplot(2, 2, 1)
     plt.title("omeg")
 
     plt.plot(t,omeg_xl,'r',label="omeg x")
@@ -38,7 +38,7 @@ def plot_data(path):
     plt.grid()
     #plt.show()
 
-    plt.figure()
+    plt.subplot(2, 2, 2)
     plt.title("ang")
 
     plt.plot(t,ang_xl,'r',label="ang x")
@@ -49,7 +49,7 @@ def plot_data(path):
     plt.grid()
     #plt.show()
 
-    plt.figure()
+    plt.subplot(2, 2, 3)
     plt.title("acc")
 
     plt.plot(t,acc_xl,'r',label="acc x")
@@ -60,7 +60,7 @@ def plot_data(path):
     plt.grid()
     #plt.show()
 
-    plt.figure()
+    plt.subplot(2, 2, 4)
     plt.title("pressure")
     plt.plot(t,pres,'y',label="pres")
     plt.legend()

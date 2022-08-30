@@ -14,7 +14,7 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 extern vu16 USART3_RX_STA;
-
+extern long int time_counter;
 //配置TIM7预装载周期值
 void TIM7_SetARR(u16 period)
 {
@@ -36,13 +36,13 @@ void TIM7_IRQHandler(void)
     }
 }
 
-//通用定时器7中断初始化
-//这里时钟选择为APB1的2倍，而APB1为42M
 //arr：自动重装值。
 //psc：时钟预分频数
 //定时器溢出时间计算方法:Tout=((arr+1)*(psc+1))/Ft us.
 //Ft=定时器工作频率,单位:Mhz
 //通用定时器中断初始化
+//APB1分频系数=AHB/APB时钟=2
+//通用定时器时钟CK_INT=APB1时钟*分频系数=72M
 //这里始终选择为APB1的2倍，而APB1为36M
 //arr：自动重装值。
 //psc：时钟预分频数
@@ -70,5 +70,44 @@ void TIM7_Int_Init(u16 arr, u16 psc)
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;   //IRQ通道使能
     NVIC_Init(&NVIC_InitStructure); //根据指定的参数初始化VIC寄存器
 
+}
+
+//通用定时器3初始化
+//时钟选择为APB1的2倍
+//arr:自动重装值
+//psc:时钟预分频
+//这里使用的是定时器3! 
+void TIM3_Int_Init(u16 arr,u16 psc) 
+{ 
+ TIM_TimeBaseInitTypeDef    TIM_TimeBaseStructure; 
+ NVIC_InitTypeDef NVIC_InitStructure; 
+ RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM3, ENABLE); //时钟定时器3使能
+          
+//TIM3 初始化
+ TIM_TimeBaseStructure.TIM_Period = arr;        //设置自动重装载寄存器周期值   
+ TIM_TimeBaseStructure.TIM_Prescaler =psc;    //除数预分频值
+ TIM_TimeBaseStructure.TIM_ClockDivision = TIM_CKD_DIV1; //时钟分割
+ TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;    //TIM 向上计数
+TIM_TimeBaseInit(TIM3, &TIM_TimeBaseStructure);                    //初始化TIM3   
+ TIM_ITConfig(TIM3,TIM_IT_Update,ENABLE );                          //允许更新中断  
+ 
+ //中断优先级NVIC
+ NVIC_InitStructure.NVIC_IRQChannel = TIM3_IRQn;                //TIM3 中断
+ NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;    //占先优先级0 
+ NVIC_InitStructure.NVIC_IRQChannelSubPriority = 3;                //从优先级3
+ NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;            //IRQ 通道使能
+ NVIC_Init(&NVIC_InitStructure);                                                  //初始化 NVIC 
+ 
+ TIM_Cmd(TIM3, ENABLE);                                                          //使能TIM3 
+          
+} 
+//定时器3 中断服务
+void TIM3_IRQHandler(void)      //TIM3 中断
+{ 
+ if (TIM_GetITStatus(TIM3, TIM_IT_Update) != RESET) //检查 TIM3 更新中断发生
+  { 
+  TIM_ClearITPendingBit(TIM3, TIM_IT_Update    ); //清除更新终端标志
+  time_counter++;
+  } 
 }
 

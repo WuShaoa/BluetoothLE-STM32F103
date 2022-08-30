@@ -24,7 +24,7 @@ void  Adc_Init(void)
 	要使用端口复用，要使能端口的时钟。
 	复用外设ADC，外设时钟也要使能。
 	*/
-	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA |RCC_APB2Periph_ADC1	, ENABLE );	  //使能ADC1通道时钟
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA | RCC_APB2Periph_GPIOC |RCC_APB2Periph_ADC1	, ENABLE );	  //使能ADC1通道时钟
 
 
 	RCC_ADCCLKConfig(RCC_PCLK2_Div6);   //设置ADC分频因子6 72M/6=12,ADC最大时间不能超过14M
@@ -33,10 +33,15 @@ void  Adc_Init(void)
 		ADC1的通道1在PA1上。
 	  设置PA1为模拟输入，使用GPIO_Init函数。
 	*/
-	//PA1 作为模拟通道输入引脚                         
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1;
+	//PA1 作为模拟通道输入引脚  ch1                       
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1 ;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AIN;		//模拟输入引脚
 	GPIO_Init(GPIOA, &GPIO_InitStructure);	
+	
+	//PC0 PC1 作为模拟通道输入引脚  ch10 ch11
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0 | GPIO_Pin_1 ;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AIN;		//模拟输入引脚
+	GPIO_Init(GPIOC, &GPIO_InitStructure);
 
 	ADC_DeInit(ADC1);  //复位ADC1,将外设 ADC1 的全部寄存器重设为缺省值
 //------------------------(3)初始化ADC1参数，设置ADC1的工作模式以及规则序列的相关信息。-----------------------------
@@ -106,7 +111,7 @@ u16 Get_Adc_Average(u8 ch,u8 times)
 	for(t=0;t<times;t++)
 	{
 		temp_val+=Get_Adc(ch);
-		delay_ms(5);
+		delay_ms(1);
 	}
 	return temp_val/times;
 } 	 

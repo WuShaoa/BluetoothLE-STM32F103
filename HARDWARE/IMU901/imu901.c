@@ -365,6 +365,8 @@ void imu901_init(void)
       */
     atkpWriteReg(REG_GYROFSR, 3, 1);
 	atkpWriteReg(REG_ACCFSR, 3, 1); // 3: 16G
+	atkpWriteReg(REG_UPSET, 63, 1); // all tyoes of data should be upload
+	atkpWriteReg(REG_UPRATE, 5, 1); // 0:250HZ upload rate
 	atkpWriteReg(REG_SAVE, 0, 1); 	/* 发送保存参数至模块内部Flash，否则模块掉电不保存 */
 
     /* 读出寄存器参数（测试） */

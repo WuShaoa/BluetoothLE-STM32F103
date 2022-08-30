@@ -9,9 +9,15 @@
 //for debugging utilities
 //TODO: clock() cant use!!
 // #define DEBUG_VERSION
+#define TIMER_3_VERSION
 
 #if defined (DEBUG_VERSION)
 #include <time.h>
+#endif
+
+#if defined (TIMER_3_VERSION)
+#include "timer.h"
+long int time_counter = 0;
 #endif
 
 #include "stm32f10x.h"
@@ -48,9 +54,16 @@
 u8 state = 0;
 u16 val = 0;
 u16 value_AD = 0;
+u16 value_AD_0 = 0;
+u16 value_AD_1 = 0;
+
+int VOLTAGE_AO = 0;
+int VOLTAGE_AO_0 = 0;
+int VOLTAGE_AO_1 = 0;
 
 long PRESS_AO = 0;
-int VOLTAGE_AO = 0;
+long PRESS_AO_0 = 0;
+long PRESS_AO_1 = 0;
 
 long map(long x, long in_min, long in_max, long out_min, long out_max);
 
@@ -74,6 +87,8 @@ int main(void)
 		int flag_first = 1;
 	#endif
 	
+
+	
 	uint8_t ch;
 
 	delay_init();									//延时函数初始化
@@ -91,6 +106,11 @@ int main(void)
 	KEY_Init();	//KEY初始化
 	Ble_IoInit(); 
 	Ble_SetInit();
+	 
+	#if defined (TIMER_3_VERSION)
+	//TIM3初始化
+	TIM3_Int_Init(9,7199); //每毫秒中断1次
+	#endif
 
 	while (1)
 	{
@@ -117,9 +137,13 @@ int main(void)
 	
 			// ble和压力传感器
 			/*多次获取ADC1的值，取平均*/
-			value_AD = Get_Adc_Average(1, 10); //10次平均值
+			value_AD = Get_Adc_Average(1, 5); //5次平均值
+			value_AD_0 = Get_Adc_Average(10, 5); //5次平均值
+			value_AD_1 = Get_Adc_Average(11, 5); //5次平均值
 												/*AO引脚输出的电压有效范围是0.1v到3.3v*/
 			VOLTAGE_AO = map(value_AD, 0, 4095, 0, 3300);
+			VOLTAGE_AO_0 = map(value_AD_0, 0, 4095, 0, 3300);
+			VOLTAGE_AO_1 = map(value_AD_1, 0, 4095, 0, 3300);
 			if (VOLTAGE_AO < VOLTAGE_MIN)
 			{
 				PRESS_AO = 0;
@@ -133,14 +157,57 @@ int main(void)
 				/*将[VOLTAGE_MIN, VOLTAGE_MAX]范围内的VOLTAGE_AO映射到[PRESS_MIN, PRESS_MAX]内*/
 				PRESS_AO = map(VOLTAGE_AO, VOLTAGE_MIN, VOLTAGE_MAX, PRESS_MIN, PRESS_MAX);
 			}
+			
+			if (VOLTAGE_AO_0 < VOLTAGE_MIN)
+			{
+				PRESS_AO_0 = 0;
+			}
+			else if (VOLTAGE_AO_0 > VOLTAGE_MAX)
+			{
+				PRESS_AO_0 = PRESS_MAX;
+			}
+			else
+			{
+				/*将[VOLTAGE_MIN, VOLTAGE_MAX]范围内的VOLTAGE_AO映射到[PRESS_MIN, PRESS_MAX]内*/
+				PRESS_AO_0 = map(VOLTAGE_AO_0, VOLTAGE_MIN, VOLTAGE_MAX, PRESS_MIN, PRESS_MAX);
+			}
+			
+			if (VOLTAGE_AO_1 < VOLTAGE_MIN)
+			{
+				PRESS_AO_1 = 0;
+			}
+			else if (VOLTAGE_AO_1 > VOLTAGE_MAX)
+			{
+				PRESS_AO_1 = PRESS_MAX;
+			}
+			else
+			{
+				/*将[VOLTAGE_MIN, VOLTAGE_MAX]范围内的VOLTAGE_AO映射到[PRESS_MIN, PRESS_MAX]内*/
+				PRESS_AO_1 = map(VOLTAGE_AO_1, VOLTAGE_MIN, VOLTAGE_MAX, PRESS_MIN, PRESS_MAX);
+			}
+			
 			//Ble_Test(PRESS_AO); //sending data by ble
-	
+			#if defined (TIMER_3_VERSION)
+
+			printf("clock time: %ld ms \r\n", time_counter);
+			
+			//time_t now;
+			//struct tm *ts;
+			//char buf[80];
+			
+			//now = time(NULL);
+			//ts = localtime(& now);
+			//strftime (buf, sizeof(buf), "% a% Y-% m-% d% H:% M:% S% Z", ts);
+			//printf ("%s \r\n", buf);
+			#endif
 			printf("AD值 = %d,电压 = %d mv,压力 = %ld g\r\n", value_AD, VOLTAGE_AO, PRESS_AO);
+			printf("AD值 = %d,电压 = %d mv,压力 = %ld g\r\n", value_AD_0, VOLTAGE_AO_0, PRESS_AO_0);
+			printf("AD值 = %d,电压 = %d mv,压力 = %ld g\r\n", value_AD_1, VOLTAGE_AO_1, PRESS_AO_1);
 			printf("姿态角[XYZ]:    %-6.1f     %-6.1f     %-6.1f   (°)\r\n", attitude.roll, attitude.pitch, attitude.yaw);
 			printf("加速度[XYZ]:    %-6.3f     %-6.3f     %-6.3f   (g)\r\n", gyroAccData.faccG[0], gyroAccData.faccG[1], gyroAccData.faccG[2]);
 			printf("角速度[XYZ]:    %-6.1f     %-6.1f     %-6.1f   (°/s)\r\n", gyroAccData.fgyroD[0], gyroAccData.fgyroD[1], gyroAccData.fgyroD[2]);
-			//printf("磁场[XYZ]  :    %-6d     %-6d     %-6d   (uT)\r\n", magData.mag[0], magData.mag[1], magData.mag[2]);
-			//printf("气压 	   :    %-6dPa   %-6dcm\r\n", baroData.pressure, baroData.altitude);
+			printf("磁场[XYZ]  :    %-6d     %-6d     %-6d   (uT)\r\n", magData.mag[0], magData.mag[1], magData.mag[2]);
+			printf("气压 	   :    %-6dPa   %-6dcm\r\n", baroData.pressure, baroData.altitude);
 			
 			u8 key = KEY_Scan(0);
 			if (key == WKUP_PRES) //????????
@@ -177,11 +244,11 @@ int main(void)
 					u3_printf("%-6.3f %-6.3f %-6.3f ", gyroAccData.faccG[0], gyroAccData.faccG[1], gyroAccData.faccG[2]);
 					//delay_ms(1);
 					u3_printf("%-6.1f %-6.1f %-6.1f ", gyroAccData.fgyroD[0], gyroAccData.fgyroD[1], gyroAccData.fgyroD[2]);
-					//u3_printf("%-6d %-6d %-6d (uT) ", magData.mag[0], magData.mag[1], magData.mag[2]);
-					//u3_printf("%-6dPa %-6dcm ", baroData.pressure, baroData.altitude);
-					//delay_ms(1);
+					u3_printf("%-6d %-6d %-6d (uT) ", magData.mag[0], magData.mag[1], magData.mag[2]);
+					u3_printf("%-6dPa %-6dcm ", baroData.pressure, baroData.altitude);
+					delay_ms(1);
 					u3_printf("\r\n");
-					//delay_ms(1);
+					delay_ms(1);
 					count++;
 				}
 				else{ printf("CHECK BLE STATE! \r\n"); }
