@@ -61,8 +61,8 @@ def plot_data(path):
     #plt.show()
 
     plt.subplot(2, 2, 4)
-    plt.title("pressure")
-    plt.plot(t,pres,'y',label="pres")
+    plt.title("magnitude of acc")
+    plt.plot(t,np.sqrt(np.power(acc_xl, 2) + np.power(acc_yl, 2) + np.power(acc_zl, 2)),'y',label="magnitude")
     plt.legend()
 
     plt.grid()
@@ -70,4 +70,4 @@ def plot_data(path):
     
 plot_data("./data1.json")
 plot_data("./data2.json")
-plot_data("./data3.json")
+

@@ -1,8 +1,5 @@
 *.bak
-*.o
-*.d
+# *.o
+# *.d
 *.old
-*.txt
-*.crf
-*.exe
-.vscode
+# *.exe
