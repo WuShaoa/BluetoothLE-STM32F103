@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "README": "markdown",
+        "*.sc": "scheme",
+        "imu901.h": "c"
+    }
+}
